@@ -6,6 +6,7 @@ use actix_web::{
 use futures::{StreamExt, TryStreamExt};
 use image::ImageFormat;
 use log::{error, info, warn};
+use mime_guess;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::io::Cursor;
@@ -126,10 +127,13 @@ async fn convert_to_webp(mut payload: Multipart) -> Result<HttpResponse, Error> 
         }
 
         // Content-TypeとContent-Dispositionの確認
-        let content_type = field
-            .content_disposition()
-            .and_then(|cd| cd.get_filename().map(|f| mime_guess::from_path(f).first_or_text_plain().to_string()))
-            .unwrap_or_else(|| "application/octet-stream".to_string());
+        let content_disposition = field.content_disposition();
+        let content_type = match content_disposition.get_filename() {
+            Some(filename) => {
+                mime_guess::from_path(filename).first_or_text_plain().to_string()
+            }
+            None => "application/octet-stream".to_string(),
+        };
 
         // サポート外の形式をチェック
         if is_unsupported_mime(&content_type) {
@@ -177,10 +181,10 @@ async fn convert_to_webp(mut payload: Multipart) -> Result<HttpResponse, Error> 
         // ロスレス設定
         let webp_data = encoder.encode_lossless();
 
-        // WebPデータをHTTPレスポンスに設定
+        // WebPデータをHTTPレスポンスに設定（バイト配列に変換）
         return Ok(HttpResponse::Ok()
             .content_type("image/webp")
-            .body(webp_data));
+            .body(webp_data.to_vec()));
     }
 
     // 画像フィールドが見つからない場合
