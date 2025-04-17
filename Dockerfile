@@ -27,7 +27,7 @@ RUN rustup component add clippy rustfmt && \
 RUN cargo build --release
 
 # 実行環境（軽量イメージ）
-FROM debian:12-slim
+FROM debian:bookworm-slim
 
 # 必要なランタイム依存関係をインストール
 RUN apt-get update && \

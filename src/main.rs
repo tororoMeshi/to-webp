@@ -4,14 +4,11 @@ use actix_web::{
     error, get, middleware::Logger, post, web, App, Error, HttpResponse, HttpServer, Responder,
 };
 use futures::{StreamExt, TryStreamExt};
-use image::ImageFormat;
 use log::{error, info, warn};
-use mime_guess;
 use serde::{Deserialize, Serialize};
 use std::env;
-use std::io::Cursor;
 use thiserror::Error;
-use webp::{Encoder, WebPMemory};
+use webp::Encoder;
 
 #[cfg(test)]
 mod tests;
@@ -66,7 +63,10 @@ impl error::ResponseError for AppError {
                     (
                         actix_web::http::StatusCode::UNSUPPORTED_MEDIA_TYPE,
                         "unsupported_media_type".to_string(),
-                        Some("サポートされている画像形式（PNG, JPEG, BMP, GIF）を使用してください。".to_string()),
+                        Some(
+                            "サポートされている画像形式（PNG, JPEG, BMP, GIF）を使用してください。"
+                                .to_string(),
+                        ),
                     )
                 }
             }
@@ -78,7 +78,10 @@ impl error::ResponseError for AppError {
             AppError::PayloadTooLarge(size) => (
                 actix_web::http::StatusCode::PAYLOAD_TOO_LARGE,
                 "payload_too_large".to_string(),
-                Some(format!("画像を圧縮または縮小して再度アップロードしてください。最大サイズは{}MBです。", size / 1024 / 1024)),
+                Some(format!(
+                    "画像を圧縮または縮小して再度アップロードしてください。最大サイズは{}MBです。",
+                    size / 1024 / 1024
+                )),
             ),
             AppError::DecodeFailure(_) => (
                 actix_web::http::StatusCode::BAD_REQUEST,
@@ -93,7 +96,10 @@ impl error::ResponseError for AppError {
             AppError::InternalError(_) => (
                 actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
                 "internal_error".to_string(),
-                Some("サーバー側でエラーが発生しました。しばらくして再試行してください。".to_string()),
+                Some(
+                    "サーバー側でエラーが発生しました。しばらくして再試行してください。"
+                        .to_string(),
+                ),
             ),
         };
 
@@ -129,15 +135,18 @@ async fn convert_to_webp(mut payload: Multipart) -> Result<HttpResponse, Error> 
         // Content-TypeとContent-Dispositionの確認
         let content_disposition = field.content_disposition();
         let content_type = match content_disposition.get_filename() {
-            Some(filename) => {
-                mime_guess::from_path(filename).first_or_text_plain().to_string()
-            }
+            Some(filename) => mime_guess::from_path(filename)
+                .first_or_octet_stream()
+                .to_string(),
             None => "application/octet-stream".to_string(),
         };
 
         // サポート外の形式をチェック
         if is_unsupported_mime(&content_type) {
-            warn!("Unsupported media type received: {} from IP={}", content_type, "0.0.0.0"); // 実際の実装ではIPアドレスを取得
+            warn!(
+                "Unsupported media type received: {} from IP={}",
+                content_type, "0.0.0.0"
+            ); // 実際の実装ではIPアドレスを取得
             return Err(AppError::UnsupportedMediaType(content_type).into());
         }
 
@@ -166,11 +175,10 @@ async fn convert_to_webp(mut payload: Multipart) -> Result<HttpResponse, Error> 
         }
 
         // 画像データを読み込み
-        let img = image::load_from_memory(&bytes)
-            .map_err(|e| {
-                error!("Failed to decode image: {}", e);
-                AppError::DecodeFailure(e.to_string())
-            })?;
+        let img = image::load_from_memory(&bytes).map_err(|e| {
+            error!("Failed to decode image: {}", e);
+            AppError::DecodeFailure(e.to_string())
+        })?;
 
         // WebPエンコーダーでロスレス変換
         let encoder = Encoder::from_image(&img).map_err(|e| {

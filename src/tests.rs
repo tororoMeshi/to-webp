@@ -10,12 +10,7 @@ mod tests {
         Response = actix_web::dev::ServiceResponse,
         Error = actix_web::Error,
     > {
-        test::init_service(
-            App::new()
-                .service(health_check)
-                .service(convert_to_webp),
-        )
-        .await
+        test::init_service(App::new().service(health_check).service(convert_to_webp)).await
     }
 
     #[actix_web::test]
@@ -30,7 +25,7 @@ mod tests {
     #[actix_web::test]
     async fn test_unsupported_mime_type() {
         let app = setup_test_app().await;
-        
+
         // HEICとして認識されるようなヘッダーを作成
         let boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
         let body = format!(
@@ -40,7 +35,10 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/convert")
-            .header("Content-Type", format!("multipart/form-data; boundary={}", boundary))
+            .header(
+                "Content-Type",
+                format!("multipart/form-data; boundary={}", boundary),
+            )
             .set_payload(Bytes::from(body))
             .to_request();
 
@@ -51,7 +49,7 @@ mod tests {
     #[actix_web::test]
     async fn test_invalid_image_format() {
         let app = setup_test_app().await;
-        
+
         // 不正な画像データを作成
         let boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
         let body = format!(
@@ -61,7 +59,10 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/convert")
-            .header("Content-Type", format!("multipart/form-data; boundary={}", boundary))
+            .header(
+                "Content-Type",
+                format!("multipart/form-data; boundary={}", boundary),
+            )
             .set_payload(Bytes::from(body))
             .to_request();
 
